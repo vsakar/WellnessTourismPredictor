@@ -48,13 +48,13 @@ preprocessor = make_column_transformer(
 # --- Step 1: Fetch best hyperparameters from Dev MLflow ---
 dev_client = MlflowClient(tracking_uri=DEV_TRACKING_URI)
 experiment = dev_client.get_experiment_by_name("wellness-tourism-training-dev")
-
 runs = dev_client.search_runs(experiment.experiment_id, order_by=["metrics.test_f1 DESC"], max_results=1)
 best_run = runs[0]
 best_params = best_run.data.params
 print("✅ Best params from Dev:", best_params)
 
 # --- Step 2: Build XGB model with best params ---
+'''
 xgb_model = xgb.XGBClassifier(
     scale_pos_weight=class_weight,
     random_state=42,
@@ -65,6 +65,18 @@ xgb_model = xgb.XGBClassifier(
     subsample=float(best_params["xgbclassifier__subsample"]),
     colsample_bytree=float(best_params["xgbclassifier__colsample_bytree"])
 )
+'''
+xgb_model = xgb.XGBClassifier(
+    scale_pos_weight=class_weight,
+    random_state=42,
+    eval_metric="logloss",
+    n_estimators=int(best_params.get("xgbclassifier__n_estimators", 100)),
+    max_depth=int(best_params.get("xgbclassifier__max_depth", 3)),
+    learning_rate=float(best_params.get("xgbclassifier__learning_rate", 0.1)),
+    subsample=float(best_params.get("xgbclassifier__subsample", 1.0)),
+    colsample_bytree=float(best_params.get("xgbclassifier__colsample_bytree", 1.0))
+)
+
 
 pipeline = make_pipeline(preprocessor, xgb_model)
 
