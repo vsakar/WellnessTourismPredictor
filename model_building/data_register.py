@@ -19,7 +19,7 @@ except RepositoryNotFoundError:
     print(f"Space '{repo_id}' created.")
 
 api.upload_folder(
-    folder_path="tourism_project/data",
+    folder_path="data",
     repo_id="vsakar/wellness-tourism-prediction",
     repo_type="dataset",
 )
