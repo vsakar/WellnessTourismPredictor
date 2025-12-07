@@ -11,14 +11,24 @@ from mlflow import MlflowClient
 from huggingface_hub import HfApi, upload_file
 import os
 
+import os
+
+BASE_DIR = os.getcwd()  # GitHub Actions workspace
+
+DEV_TRACKING_URI = f"file:{BASE_DIR}/mlruns/dev"
+PROD_TRACKING_URI = f"file:{BASE_DIR}/mlruns/prod"
+
+os.makedirs(f"{BASE_DIR}/mlruns/dev", exist_ok=True)
+os.makedirs(f"{BASE_DIR}/mlruns/prod", exist_ok=True)
+
 '''
 # --- MLflow URIs ---
 DEV_TRACKING_URI = "https://nonexcitatory-zayn-unhoned.ngrok-free.dev/"
 PROD_TRACKING_URI = "https://nonexcitatory-zayn-unhoned.ngrok-free.dev/"
-'''
+
 DEV_TRACKING_URI = "file:mlruns/dev"
 PROD_TRACKING_URI = "file:mlruns/prod"
-
+'''
 
 # --- Load dataset ---
 DATASET_PATH = "hf://datasets/vsakar/wellness-tourism-prediction/tourism.csv"
@@ -104,9 +114,12 @@ with mlflow.start_run():
     })
 
     # Save model
-    model_path = "tourism_project/prod_wellness_model.joblib"
+    #model_path = "tourism_project/prod_wellness_model.joblib"
+    model_path = os.path.join(BASE_DIR, "prod_wellness_model.joblib")
+
     joblib.dump(pipeline, model_path)
     mlflow.log_artifact(model_path, artifact_path="model")
+
     print(f"✅ Model saved and logged to MLflow Prod: {model_path}")
 
     # --- Step 4: Push to Hugging Face Hub ---
