@@ -20,6 +20,6 @@ except RepositoryNotFoundError:
 
 api.upload_folder(
     folder_path="data",
-    repo_id=repo_id,
-    repo_type=repo_type,
+    repo_id="vsakar/wellness-tourism-prediction",
+    repo_type="dataset",
 )
