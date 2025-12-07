@@ -45,7 +45,7 @@ jobs:
       - name: Model Building
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: tourism_project/train_prod.py
+        run: python tourism_project/train_prod.py
 
 
   deploy-hosting:
@@ -58,4 +58,4 @@ jobs:
       - name: Push files to Frontend Hugging Face Space
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: tourism_project/hosting/hosting.py
+        run: python tourism_project/hosting/hosting.py
