@@ -7,12 +7,13 @@ import xgboost as xgb
 from sklearn.metrics import classification_report
 import joblib
 import mlflow
+from mlflow import MlflowClient
+from huggingface_hub import HfApi, upload_file
+import os
 
+# --- MLflow URIs ---
+DEV_TRACKING_URI = "https://nonexcitatory-zayn-unhoned.ngrok-free.dev/"
 PROD_TRACKING_URI = "https://nonexcitatory-zayn-unhoned.ngrok-free.dev/"
-
-# Point MLflow to Prod server
-mlflow.set_tracking_uri(PROD_TRACKING_URI)
-mlflow.set_experiment("wellness-tourism-training-prod")
 
 # --- Load dataset ---
 DATASET_PATH = "hf://datasets/vsakar/wellness-tourism-prediction/tourism.csv"
@@ -44,24 +45,40 @@ preprocessor = make_column_transformer(
     (OneHotEncoder(handle_unknown="ignore"), categorical_features)
 )
 
-# --- Base XGBoost model ---
+# --- Step 1: Fetch best hyperparameters from Dev MLflow ---
+dev_client = MlflowClient(tracking_uri=DEV_TRACKING_URI)
+experiment = dev_client.get_experiment_by_name("wellness-tourism-training-dev")
+
+runs = dev_client.search_runs(experiment.experiment_id, order_by=["metrics.test_f1 DESC"], max_results=1)
+best_run = runs[0]
+best_params = best_run.data.params
+print("✅ Best params from Dev:", best_params)
+
+# --- Step 2: Build XGB model with best params ---
 xgb_model = xgb.XGBClassifier(
     scale_pos_weight=class_weight,
     random_state=42,
-    eval_metric="logloss"
+    eval_metric="logloss",
+    n_estimators=int(best_params["xgbclassifier__n_estimators"]),
+    max_depth=int(best_params["xgbclassifier__max_depth"]),
+    learning_rate=float(best_params["xgbclassifier__learning_rate"]),
+    subsample=float(best_params["xgbclassifier__subsample"]),
+    colsample_bytree=float(best_params["xgbclassifier__colsample_bytree"])
 )
 
 pipeline = make_pipeline(preprocessor, xgb_model)
 
-# --- MLflow run ---
+# --- Step 3: Train and log to Prod MLflow ---
+mlflow.set_tracking_uri(PROD_TRACKING_URI)
+mlflow.set_experiment("wellness-tourism-training-prod")
+
 with mlflow.start_run():
     pipeline.fit(Xtrain, ytrain)
-
-    # Predictions
     y_pred_test = pipeline.predict(Xtest)
     test_report = classification_report(ytest, y_pred_test, output_dict=True)
 
-    # Log metrics
+    # Log params + metrics
+    mlflow.log_params(best_params)
     mlflow.log_metrics({
         "test_accuracy": test_report["accuracy"],
         "test_precision": test_report["1"]["precision"],
@@ -74,3 +91,14 @@ with mlflow.start_run():
     joblib.dump(pipeline, model_path)
     mlflow.log_artifact(model_path, artifact_path="model")
     print(f"✅ Model saved and logged to MLflow Prod: {model_path}")
+
+    # --- Step 4: Push to Hugging Face Hub ---
+    api = HfApi(token=os.getenv("HF_TOKEN"))
+    api.create_repo(repo_id="vsakar/wellness_tourism_model", repo_type="model", exist_ok=True)
+    upload_file(
+        path_or_fileobj=model_path,
+        path_in_repo="prod_wellness_model.joblib",
+        repo_id="vsakar/wellness_tourism_model",
+        repo_type="model"
+    )
+    print("🚀 Production model pushed to Hugging Face Hub!")

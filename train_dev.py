@@ -1,5 +1,5 @@
 import pandas as pd
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.compose import make_column_transformer
 from sklearn.pipeline import make_pipeline
@@ -19,7 +19,7 @@ DATASET_PATH = "hf://datasets/vsakar/wellness-tourism-prediction/tourism.csv"
 df = pd.read_csv(DATASET_PATH)
 
 # --- Define target and features ---
-target = "ProdTaken"   # whether customer purchased the package
+target = "ProdTaken"
 numeric_features = [
     "Age",
     "NumberOfPersonVisiting",
@@ -68,17 +68,49 @@ xgb_model = xgb.XGBClassifier(
 
 pipeline = make_pipeline(preprocessor, xgb_model)
 
+# --- Parameter grid for XGB ---
+'''
+param_grid = {
+    "xgbclassifier__n_estimators": [100, 200],
+    "xgbclassifier__max_depth": [3, 5, 7],
+    "xgbclassifier__learning_rate": [0.01, 0.1, 0.2],
+    "xgbclassifier__subsample": [0.8, 1.0],
+    "xgbclassifier__colsample_bytree": [0.8, 1.0]
+}
+'''
+param_grid = {
+    "xgbclassifier__n_estimators": [100, 200],
+    "xgbclassifier__max_depth": [3, 5],
+    "xgbclassifier__learning_rate": [0.05, 0.1],
+}
+
+
+grid_search = GridSearchCV(
+    pipeline,
+    param_grid,
+    cv=3,
+    scoring="f1",
+    n_jobs=-1,
+    verbose=2
+)
+
 # --- MLflow run ---
 with mlflow.start_run():
-    pipeline.fit(Xtrain, ytrain)
+    grid_search.fit(Xtrain, ytrain)
+
+    best_pipeline = grid_search.best_estimator_
+    best_params = grid_search.best_params_
 
     # Predictions
-    y_pred_train = pipeline.predict(Xtrain)
-    y_pred_test = pipeline.predict(Xtest)
+    y_pred_train = best_pipeline.predict(Xtrain)
+    y_pred_test = best_pipeline.predict(Xtest)
 
     # Reports
     train_report = classification_report(ytrain, y_pred_train, output_dict=True)
     test_report = classification_report(ytest, y_pred_test, output_dict=True)
+
+    # Log best params
+    mlflow.log_params(best_params)
 
     # Log metrics
     mlflow.log_metrics({
@@ -92,8 +124,9 @@ with mlflow.start_run():
         "test_f1": test_report["1"]["f1-score"]
     })
 
-    # Save model
+    # Save best model
     model_path = "dev_wellness_model.joblib"
-    joblib.dump(pipeline, model_path)
+    joblib.dump(best_pipeline, model_path)
     mlflow.log_artifact(model_path, artifact_path="model")
-    print(f"Model saved and logged to MLflow: {model_path}")
+    print(f"✅ Best model saved and logged to MLflow: {model_path}")
+    print(f"Best hyperparameters: {best_params}")
