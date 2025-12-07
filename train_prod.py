@@ -11,9 +11,14 @@ from mlflow import MlflowClient
 from huggingface_hub import HfApi, upload_file
 import os
 
+'''
 # --- MLflow URIs ---
 DEV_TRACKING_URI = "https://nonexcitatory-zayn-unhoned.ngrok-free.dev/"
 PROD_TRACKING_URI = "https://nonexcitatory-zayn-unhoned.ngrok-free.dev/"
+'''
+DEV_TRACKING_URI = "file:mlruns/dev"
+PROD_TRACKING_URI = "file:mlruns/prod"
+
 
 # --- Load dataset ---
 DATASET_PATH = "hf://datasets/vsakar/wellness-tourism-prediction/tourism.csv"
