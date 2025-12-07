@@ -87,7 +87,7 @@ with mlflow.start_run():
     })
 
     # Save model
-    model_path = "prod_wellness_model.joblib"
+    model_path = "tourism_project/prod_wellness_model.joblib"
     joblib.dump(pipeline, model_path)
     mlflow.log_artifact(model_path, artifact_path="model")
     print(f"✅ Model saved and logged to MLflow Prod: {model_path}")
